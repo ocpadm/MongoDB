@@ -1,0 +1,413 @@
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: v1
+kind: Template
+labels:
+  template: bjb-eap70-mongodb
+  xpaas: 1.3.2
+metadata:
+  annotations:
+    description: Application template for EAP 7 MongoDB applications with persistent
+      storage built using S2I.
+    iconClass: icon-jboss
+    tags: eap,mongodb,javaee,java,database,jboss
+    version: 1.3.2
+  creationTimestamp: 2017-08-28T11:05:30Z
+  name: bjb-eap70-mongodb
+  namespace: openshift
+  resourceVersion: "6994405"
+  selfLink: /oapi/v1/namespaces/openshift/templates/bjb-eap70-mongodb
+  uid: ce2719c9-8be0-11e7-a0ad-005056a808a2
+objects:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      description: The web server's http port.
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    ports:
+    - port: 8080
+      targetPort: 8080
+    selector:
+      deploymentConfig: ${APPLICATION_NAME}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      description: The database server's port.
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-mongodb
+  spec:
+    ports:
+    - port: 27017
+      targetPort: 27017
+    selector:
+      deploymentConfig: ${APPLICATION_NAME}-mongodb
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APPLICATION_NAME}:latest
+    source:
+      contextDir: ${CONTEXT_DIR}
+      git:
+        ref: ${SOURCE_REPOSITORY_REF}
+        uri: ${SOURCE_REPOSITORY_URL}
+      sourceSecret:
+        name: jenkins
+      type: Git
+    strategy:
+      sourceStrategy:
+        env:
+        - name: MAVEN_ARGS
+          value: clean install -DMAVEN_MIRROR_URL=nexus.juliusbaer.com -DstkipTests
+        forcePull: true
+        from:
+          kind: ImageStreamTag
+          name: jboss-eap70-openshift:latest
+          namespace: ${IMAGE_STREAM_NAMESPACE}
+      type: Source
+    triggers:
+    - github:
+        secret: ${GITHUB_WEBHOOK_SECRET}
+      type: GitHub
+    - generic:
+        secret: ${GENERIC_WEBHOOK_SECRET}
+      type: Generic
+    - imageChange: {}
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    replicas: 1
+    selector:
+      deploymentConfig: ${APPLICATION_NAME}
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          application: ${APPLICATION_NAME}
+          deploymentConfig: ${APPLICATION_NAME}
+        name: ${APPLICATION_NAME}
+      spec:
+        containers:
+        - env:
+          - name: DB_SERVICE_PREFIX_MAPPING
+            value: ${APPLICATION_NAME}-mongodb=DB
+          - name: DB_JNDI
+            value: ${DB_JNDI}
+          - name: DB_USERNAME
+            value: ${DB_USERNAME}
+          - name: DB_PASSWORD
+            value: ${DB_PASSWORD}
+          - name: DB_DATABASE
+            value: ${DB_DATABASE}
+          - name: DB_ADMIN_PASSWORD
+            value: ${DB_ADMIN_PASSWORD}
+          - name: DB_MIN_POOL_SIZE
+            value: ${DB_MIN_POOL_SIZE}
+          - name: DB_MAX_POOL_SIZE
+            value: ${DB_MAX_POOL_SIZE}
+          - name: DB_TX_ISOLATION
+            value: ${DB_TX_ISOLATION}
+          - name: OPENSHIFT_KUBE_PING_LABELS
+            value: application=${APPLICATION_NAME}
+          - name: OPENSHIFT_KUBE_PING_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: HTTPS_KEYSTORE_DIR
+            value: /etc/eap-secret-volume
+          - name: HTTPS_KEYSTORE
+            value: ${HTTPS_KEYSTORE}
+          - name: HTTPS_KEYSTORE_TYPE
+            value: ${HTTPS_KEYSTORE_TYPE}
+          - name: HTTPS_NAME
+            value: ${HTTPS_NAME}
+          - name: HTTPS_PASSWORD
+            value: ${HTTPS_PASSWORD}
+          - name: MQ_CLUSTER_PASSWORD
+            value: ${MQ_CLUSTER_PASSWORD}
+          - name: MQ_QUEUES
+            value: ${MQ_QUEUES}
+          - name: MQ_TOPICS
+            value: ${MQ_TOPICS}
+          - name: JGROUPS_ENCRYPT_SECRET
+            value: ${JGROUPS_ENCRYPT_SECRET}
+          - name: JGROUPS_ENCRYPT_KEYSTORE_DIR
+            value: /etc/jgroups-encrypt-secret-volume
+          - name: JGROUPS_ENCRYPT_KEYSTORE
+            value: ${JGROUPS_ENCRYPT_KEYSTORE}
+          - name: JGROUPS_ENCRYPT_NAME
+            value: ${JGROUPS_ENCRYPT_NAME}
+          - name: JGROUPS_ENCRYPT_PASSWORD
+            value: ${JGROUPS_ENCRYPT_PASSWORD}
+          - name: JGROUPS_CLUSTER_PASSWORD
+            value: ${JGROUPS_CLUSTER_PASSWORD}
+          - name: AUTO_DEPLOY_EXPLODED
+            value: ${AUTO_DEPLOY_EXPLODED}
+          image: ${APPLICATION_NAME}
+          imagePullPolicy: Always
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - /opt/eap/bin/jboss-cli.sh
+                - -c
+                - :shutdown(timeout=60)
+          livenessProbe:
+            exec:
+              command:
+              - /bin/bash
+              - -c
+              - /opt/eap/bin/livenessProbe.sh
+          name: ${APPLICATION_NAME}
+          ports:
+          - containerPort: 8778
+            name: jolokia
+            protocol: TCP
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          - containerPort: 8443
+            name: https
+            protocol: TCP
+          - containerPort: 8888
+            name: ping
+            protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+              - /bin/bash
+              - -c
+              - /opt/eap/bin/readinessProbe.sh
+        serviceAccountName: ${SERVICE_ACCOUNT_NAME}
+        terminationGracePeriodSeconds: 75
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${APPLICATION_NAME}
+        from:
+          kind: ImageStreamTag
+          name: ${APPLICATION_NAME}:latest
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-mongodb
+  spec:
+    replicas: 1
+    selector:
+      deploymentConfig: ${APPLICATION_NAME}-mongodb
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          application: ${APPLICATION_NAME}
+          deploymentConfig: ${APPLICATION_NAME}-mongodb
+        name: ${APPLICATION_NAME}-mongodb
+      spec:
+        containers:
+        - env:
+          - name: MONGODB_USER
+            value: ${DB_USERNAME}
+          - name: MONGODB_PASSWORD
+            value: ${DB_PASSWORD}
+          - name: MONGODB_DATABASE
+            value: ${DB_DATABASE}
+          - name: MONGODB_ADMIN_PASSWORD
+            value: ${DB_ADMIN_PASSWORD}
+          - name: MONGODB_NOPREALLOC
+            value: ${MONGODB_NOPREALLOC}
+          - name: MONGODB_SMALLFILES
+            value: ${MONGODB_SMALLFILES}
+          - name: MONGODB_QUIET
+            value: ${MONGODB_QUIET}
+          image: mongodb
+          imagePullPolicy: Always
+          name: ${APPLICATION_NAME}-mongodb
+          ports:
+          - containerPort: 27017
+            protocol: TCP
+          volumeMounts:
+          - mountPath: /var/lib/mongodb/data
+            name: ${APPLICATION_NAME}-mongodb-pvol
+        terminationGracePeriodSeconds: 60
+        volumes:
+        - name: ${APPLICATION_NAME}-mongodb-pvol
+          persistentVolumeClaim:
+            claimName: ${APPLICATION_NAME}-mongodb-claim
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${APPLICATION_NAME}-mongodb
+        from:
+          kind: ImageStreamTag
+          name: mongodb:latest
+          namespace: ${IMAGE_STREAM_NAMESPACE}
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    labels:
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-mongodb-claim
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: ${VOLUME_CAPACITY}
+parameters:
+- description: The name for the application.
+  name: APPLICATION_NAME
+  required: true
+  value: eap-app
+- description: 'Custom hostname for http service route.  Leave blank for default hostname,
+    e.g.: <application-name>-<project>.<default-domain-suffix>'
+  name: HOSTNAME_HTTP
+- description: 'Custom hostname for https service route.  Leave blank for default
+    hostname, e.g.: secure-<application-name>-<project>.<default-domain-suffix>'
+  name: HOSTNAME_HTTPS
+- description: Git source URI for application
+  name: SOURCE_REPOSITORY_URL
+  required: true
+  value: ssh://git@stash.juliusbaer.com:7999/inst/javaee7-mongodb.git
+- description: Git branch/tag reference
+  name: SOURCE_REPOSITORY_REF
+  value: master
+- description: Path within Git project to build; empty for root project directory.
+  name: CONTEXT_DIR
+  value: /
+- description: Database JNDI name used by application to resolve the datasource, e.g.
+    java:/jboss/datasources/mongodb
+  name: DB_JNDI
+- description: Database name
+  name: DB_DATABASE
+  required: true
+  value: root
+- description: Size of persistent storage for database volume.
+  name: VOLUME_CAPACITY
+  required: true
+  value: 512Mi
+- description: Queue names
+  name: MQ_QUEUES
+- description: Topic names
+  name: MQ_TOPICS
+- description: The name of the service account to use for the deployment.  The service
+    account should be configured to allow useage of the secret(s) specified by HTTPS_SECRET
+    and JGROUPS_ENCRYPT_SECRET.
+  name: SERVICE_ACCOUNT_NAME
+  required: true
+  value: deployer
+- description: The name of the secret containing the keystore file
+  name: HTTPS_SECRET
+  value: eap7-app-secret
+- description: The name of the keystore file within the secret
+  name: HTTPS_KEYSTORE
+  value: keystore.jks
+- description: The type of the keystore file (JKS or JCEKS)
+  name: HTTPS_KEYSTORE_TYPE
+- description: The name associated with the server certificate
+  name: HTTPS_NAME
+- description: The password for the keystore and certificate
+  name: HTTPS_PASSWORD
+- description: Sets xa-pool/min-pool-size for the configured datasource.
+  name: DB_MIN_POOL_SIZE
+- description: Sets xa-pool/max-pool-size for the configured datasource.
+  name: DB_MAX_POOL_SIZE
+- description: Sets transaction-isolation for the configured datasource.
+  name: DB_TX_ISOLATION
+- description: Disable data file preallocation.
+  name: MONGODB_NOPREALLOC
+- description: Set MongoDB to use a smaller default data file size.
+  name: MONGODB_SMALLFILES
+- description: Runs MongoDB in a quiet mode that attempts to limit the amount of output.
+  name: MONGODB_QUIET
+- description: A-MQ cluster admin password
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: MQ_CLUSTER_PASSWORD
+  required: true
+- description: Database user name
+  from: user[a-zA-Z0-9]{3}
+  generate: expression
+  name: DB_USERNAME
+  required: true
+- description: Database user password
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: DB_PASSWORD
+  required: true
+- description: Database admin password
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: DB_ADMIN_PASSWORD
+  required: true
+- description: GitHub trigger secret
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: GITHUB_WEBHOOK_SECRET
+  required: true
+- description: Generic build trigger secret
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: GENERIC_WEBHOOK_SECRET
+  required: true
+- description: Namespace in which the ImageStreams for Red Hat Middleware images are
+    installed. These ImageStreams are normally installed in the openshift namespace.
+    You should only need to modify this if you've installed the ImageStreams in a
+    different namespace/project.
+  name: IMAGE_STREAM_NAMESPACE
+  required: true
+  value: openshift
+- description: The name of the secret containing the keystore file
+  name: JGROUPS_ENCRYPT_SECRET
+  value: eap7-app-secret
+- description: The name of the keystore file within the secret
+  name: JGROUPS_ENCRYPT_KEYSTORE
+  value: jgroups.jceks
+- description: The name associated with the server certificate
+  name: JGROUPS_ENCRYPT_NAME
+- description: The password for the keystore and certificate
+  name: JGROUPS_ENCRYPT_PASSWORD
+- description: JGroups cluster password
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: JGROUPS_CLUSTER_PASSWORD
+  required: true
+- description: Controls whether exploded deployment content should be automatically
+    deployed
+  name: AUTO_DEPLOY_EXPLODED
+  value: "false"
