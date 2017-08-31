@@ -1,34 +1,14 @@
-kitchensink: Assortment of technologies including Arquillian
+MongoDB for Java Developers: Design, build, and deliver efficient Java applications using the most advanced NoSQL database
 ========================
-Author: Pete Muir  
+Author: Francesco Marchioni    
 Level: Intermediate  
-Technologies: CDI, JSF, JPA, EJB, JAX-RS, BV  
-Summary: The `kitchensink` quickstart demonstrates a Java EE 6 web-enabled database application using JSF, CDI, EJB, JPA and Bean Validation.  
+Technologies: CDI, JSF, JPA, EJB, JAX-RS, MongoDB 3+    
+Summary: Example JEE Wildfly 10 app with JSF, CDI, JAX-RS and MongoDB 3 taken as example on OSIO Early Access program    
 Target Product: JBoss EAP  
-Source: <https://github.com/jboss-developer/jboss-eap-quickstarts/>  
+Source: https://www.packtpub.com/application-development/mongodb-java-developers      
 
-What is it?
+Maven setups
 -----------
-
-The `kitchensink` quickstart is a deployable Maven 3 project designed to help you get your foot in the door developing with Java EE 6 on Red Hat JBoss Enterprise Application Platform. 
-
-It demonstrates how to create a compliant Java EE 6 application using JSF 2.1, CDI 1.0, JAX-RS, EJB 3.1, JPA 2.0 and Bean Validation 1.0. It also includes a persistence unit and some sample persistence and transaction code to introduce you to database access in enterprise Java. 
-
-_Note: This quickstart uses the H2 database included with Red Hat JBoss Enterprise Application Platform 6. It is a lightweight, relational example datasource that is used for examples only. It is not robust or scalable, is not supported, and should NOT be used in a production environment!_
-
-_Note: This quickstart uses a `*-ds.xml` datasource configuration file for convenience and ease of database configuration. These files are deprecated in JBoss EAP 6.4 and should not be used in a production environment. Instead, you should configure the datasource using the Management CLI or Management Console. Datasource configuration is documented in the [Administration and Configuration Guide](https://access.redhat.com/documentation/en-US/JBoss_Enterprise_Application_Platform/) for Red Hat JBoss Enterprise Application Platform._
-
-System requirements
--------------------
-
-The application this project produces is designed to be run on Red Hat JBoss Enterprise Application Platform 6.1 or later. 
-
-All you need to build this project is Java 6.0 (Java SDK 1.6) or later, Maven 3.0 or later.
-
- 
-Configure Maven
----------------
-
 If you have not yet done so, you must [Configure Maven](https://github.com/jboss-developer/jboss-developer-shared-resources/blob/master/guides/CONFIGURE_MAVEN.md#configure-maven-to-build-and-deploy-the-quickstarts) before testing the quickstarts.
 
 
@@ -66,26 +46,6 @@ Access the application
 ---------------------
 
 The application will be running at the following URL: <http://localhost:8080/jboss-kitchensink/>.
-
-
-Server Log: Expected warnings and errors
------------------------------------
-
-_Note:_ You will see the following warnings in the server log. You can ignore these warnings.
-
-    JBAS010489: -ds.xml file deployments are deprecated. Support may be removed in a future version.
-
-    HHH000431: Unable to determine H2 database version, certain features may not work
-
-
-Undeploy the Archive
---------------------
-
-1. Make sure you have started the JBoss EAP server as described above.
-2. Open a command prompt and navigate to the root directory of this quickstart.
-3. When you are finished testing, type this command to undeploy the archive:
-
-        mvn jboss-as:undeploy
 
 
 Run the Arquillian Tests 
